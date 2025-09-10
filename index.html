@@ -141,6 +141,11 @@
         <!-- 状态提示 -->
         <div id="statusMessage" class="mb-4 py-2 px-4 rounded-lg hidden"></div>
         
+        <!-- 同步日志 -->
+        <div id="syncLog" class="mb-4 text-xs text-gray-500 dark:text-gray-400 hidden">
+            <p><i class="fa fa-info-circle mr-1"></i> 同步详情将显示在这里</p>
+        </div>
+        
         <!-- 备忘录容器 -->
         <div id="notesContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <!-- 备忘录将通过JavaScript动态添加 -->
@@ -250,6 +255,7 @@
         const githubTokenInput = document.getElementById('githubToken');
         const saveGithubSettingsBtn = document.getElementById('saveGithubSettings');
         const statusMessage = document.getElementById('statusMessage');
+        const syncLog = document.getElementById('syncLog');
         const conflictModal = document.getElementById('conflictModal');
         const closeConflictModalBtn = document.getElementById('closeConflictModal');
         const keepLocalBtn = document.getElementById('keepLocal');
@@ -526,18 +532,28 @@
         function showStatus(message, isError = false) {
             statusMessage.textContent = message;
             statusMessage.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'dark:bg-green-900', 'dark:text-green-100', 
+                                      'bg-yellow-100', 'text-yellow-800', 'dark:bg-yellow-900', 'dark:text-yellow-100',
                                       'bg-red-100', 'text-red-800', 'dark:bg-red-900', 'dark:text-red-100');
             
             if (isError) {
                 statusMessage.classList.add('bg-red-100', 'text-red-800', 'dark:bg-red-900', 'dark:text-red-100');
+            } else if (message.includes('正在') || message.includes('检查')) {
+                statusMessage.classList.add('bg-yellow-100', 'text-yellow-800', 'dark:bg-yellow-900', 'dark:text-yellow-100');
             } else {
                 statusMessage.classList.add('bg-green-100', 'text-green-800', 'dark:bg-green-900', 'dark:text-green-100');
             }
             
-            // 5秒后隐藏消息
+            // 8秒后隐藏消息
             setTimeout(() => {
                 statusMessage.classList.add('hidden');
-            }, 5000);
+            }, 8000);
+        }
+        
+        // 记录同步日志
+        function logSync(message) {
+            syncLog.classList.remove('hidden');
+            const timestamp = new Date().toLocaleTimeString();
+            syncLog.innerHTML = `<p><i class="fa fa-clock-o mr-1"></i> [${timestamp}] ${message}</p>`;
         }
         
         // 开始同步动画
@@ -545,6 +561,7 @@
             isSyncing = true;
             syncIcon.classList.add('sync-pulse');
             syncBtn.disabled = true;
+            syncBadge.classList.add('hidden');
         }
         
         // 结束同步动画
@@ -564,7 +581,9 @@
         function updateLastSyncTime() {
             const lastSync = localStorage.getItem(LAST_SYNC_KEY);
             if (lastSync) {
-                showStatus(`最后同步: ${new Date(lastSync).toLocaleString()}`);
+                logSync(`最后同步: ${new Date(lastSync).toLocaleString()}`);
+            } else {
+                logSync('尚未同步过数据');
             }
         }
         
@@ -578,16 +597,19 @@
             } else {
                 localStorage.removeItem(GITHUB_TOKEN_KEY);
                 showStatus('已清除GitHub设置，将仅使用本地存储', true);
+                logSync('已切换到本地存储模式');
             }
         }
         
         // 获取或创建Gist
         async function getOrCreateGist(token) {
             let gistId = localStorage.getItem(GIST_ID_KEY);
+            logSync(`检查Gist ID: ${gistId ? '已存在' : '不存在'}`);
             
             // 如果已有Gist ID，尝试获取它
             if (gistId) {
                 try {
+                    logSync(`尝试获取Gist: ${gistId.substring(0, 8)}...`);
                     const response = await fetch(`https://api.github.com/gists/${gistId}`, {
                         headers: {
                             Authorization: `token ${token}`,
@@ -596,15 +618,21 @@
                     });
                     
                     if (response.ok) {
+                        logSync('Gist获取成功');
                         return gistId;
+                    } else {
+                        logSync(`Gist获取失败，状态码: ${response.status}`);
+                        // 如果Gist不存在或无法访问，清除旧ID并创建新的
+                        localStorage.removeItem(GIST_ID_KEY);
                     }
                 } catch (error) {
-                    console.error('获取Gist失败:', error);
+                    logSync(`获取Gist失败: ${error.message}`);
                 }
             }
             
             // 创建新的Gist
             try {
+                logSync('尝试创建新的Gist...');
                 const response = await fetch('https://api.github.com/gists', {
                     method: 'POST',
                     headers: {
@@ -626,13 +654,15 @@
                 if (response.ok) {
                     const gist = await response.json();
                     localStorage.setItem(GIST_ID_KEY, gist.id);
+                    logSync(`Gist创建成功，ID: ${gist.id.substring(0, 8)}...`);
                     return gist.id;
                 } else {
                     const error = await response.json();
+                    logSync(`创建Gist失败: ${error.message || '未知错误'}`);
                     throw new Error(error.message || '创建Gist失败');
                 }
             } catch (error) {
-                console.error('创建Gist失败:', error);
+                logSync(`创建Gist失败: ${error.message}`);
                 throw error;
             }
         }
@@ -640,6 +670,7 @@
         // 从Gist获取笔记
         async function getNotesFromGist(token, gistId) {
             try {
+                logSync(`从Gist获取数据: ${gistId.substring(0, 8)}...`);
                 const response = await fetch(`https://api.github.com/gists/${gistId}`, {
                     headers: {
                         Authorization: `token ${token}`,
@@ -648,14 +679,17 @@
                 });
                 
                 if (!response.ok) {
+                    logSync(`获取Gist数据失败，状态码: ${response.status}`);
                     throw new Error('获取Gist数据失败');
                 }
                 
                 const gist = await response.json();
                 const content = gist.files['notes.json'].content;
-                return JSON.parse(content);
+                const cloudNotes = JSON.parse(content);
+                logSync(`从云端获取到 ${cloudNotes.length} 条笔记`);
+                return cloudNotes;
             } catch (error) {
-                console.error('从Gist获取笔记失败:', error);
+                logSync(`从Gist获取笔记失败: ${error.message}`);
                 throw error;
             }
         }
@@ -663,6 +697,7 @@
         // 将笔记保存到Gist
         async function saveNotesToGist(token, gistId, notesData) {
             try {
+                logSync(`保存 ${notesData.length} 条笔记到Gist`);
                 const response = await fetch(`https://api.github.com/gists/${gistId}`, {
                     method: 'PATCH',
                     headers: {
@@ -681,12 +716,14 @@
                 
                 if (!response.ok) {
                     const error = await response.json();
+                    logSync(`保存到Gist失败: ${error.message || '未知错误'}`);
                     throw new Error(error.message || '保存到Gist失败');
                 }
                 
+                logSync('笔记已成功保存到云端');
                 return true;
             } catch (error) {
-                console.error('保存笔记到Gist失败:', error);
+                logSync(`保存笔记到Gist失败: ${error.message}`);
                 throw error;
             }
         }
@@ -695,6 +732,7 @@
         function checkForConflicts(localNotes, cloudNotes) {
             // 简单冲突检测：比较笔记数量和最后修改时间
             if (localNotes.length !== cloudNotes.length) {
+                logSync(`检测到数量冲突: 本地 ${localNotes.length} 条, 云端 ${cloudNotes.length} 条`);
                 return true;
             }
             
@@ -703,11 +741,18 @@
                 const localNote = localNotes[i];
                 const cloudNote = cloudNotes.find(n => n.id === localNote.id);
                 
-                if (!cloudNote || new Date(localNote.date) > new Date(cloudNote.date)) {
+                if (!cloudNote) {
+                    logSync(`检测到冲突: 本地有笔记 ${localNote.id.substring(0, 6)}... 云端没有`);
+                    return true;
+                }
+                
+                if (new Date(localNote.date) > new Date(cloudNote.date)) {
+                    logSync(`检测到冲突: 笔记 ${localNote.id.substring(0, 6)}... 本地版本更新`);
                     return true;
                 }
             }
             
+            logSync('未检测到数据冲突');
             return false;
         }
         
@@ -765,13 +810,14 @@
             
             const token = localStorage.getItem(GITHUB_TOKEN_KEY);
             if (!token) {
-                showStatus('请先设置GitHub令牌', true);
+                showStatus('请先设置GitHub令牌以启用同步', true);
                 return;
             }
             
             try {
                 startSyncAnimation();
                 showStatus('正在同步数据...');
+                logSync('开始同步流程');
                 
                 // 获取或创建Gist
                 const gistId = await getOrCreateGist(token);
@@ -781,6 +827,7 @@
                 
                 // 检查冲突
                 if (checkForConflicts(notes, cloudNotes)) {
+                    showStatus('检测到数据冲突，请选择保留的版本');
                     showConflictModal(notes, cloudNotes);
                     endSyncAnimation();
                     return;
@@ -795,19 +842,22 @@
                     ? new Date(cloudNotes.reduce((max, note) => new Date(note.date) > new Date(max.date) ? note : max).date)
                     : new Date(0);
                 
+                logSync(`本地最后修改: ${localLastModified.toLocaleString()}`);
+                logSync(`云端最后修改: ${cloudLastModified.toLocaleString()}`);
+                
                 // 本地更新，上传到云端
                 if (localLastModified > cloudLastModified) {
                     await saveNotesToGist(token, gistId, notes);
-                    showStatus('本地数据更新至云端');
+                    showStatus('本地数据已更新至云端');
                 } 
                 // 云端更新，下载到本地
                 else if (cloudLastModified > localLastModified) {
                     notes = cloudNotes;
                     saveNotesLocally();
                     renderNotes();
-                    showStatus('已从云端获取最新数据');
+                    showStatus(`已从云端获取最新数据 (${cloudNotes.length} 条笔记)`);
                 } else {
-                    showStatus('数据已同步，无需更新');
+                    showStatus('数据已同步，本地与云端完全一致');
                 }
                 
                 // 更新最后同步时间
@@ -817,6 +867,7 @@
             } catch (error) {
                 console.error('同步失败:', error);
                 showStatus(`同步失败: ${error.message || '未知错误'}`, true);
+                logSync(`同步失败: ${error.message || '未知错误'}`);
             } finally {
                 endSyncAnimation();
             }
