@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>同步备忘录</title>
+    <!-- 引入Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入Font Awesome图标 -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <!-- 配置Tailwind自定义颜色 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4F46E5',
+                        secondary: '#10B981',
+                        neutral: '#1F2937',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <!-- 自定义工具类 -->
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .note-shadow {
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            }
+            .note-hover {
+                transition: all 0.3s ease;
+            }
+            .note-hover:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            }
+            .sync-pulse {
+                animation: pulse 2s infinite;
+            }
+            @keyframes pulse {
+                0% { opacity: 1; }
+                50% { opacity: 0.5; }
+                100% { opacity: 1; }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen transition-colors duration-300">
+    <!-- 顶部导航栏 -->
+    <header class="bg-white dark:bg-gray-800 shadow-md sticky top-0 z-50 transition-colors duration-300">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-sticky-note text-primary text-2xl"></i>
+                <h1 class="text-xl font-bold">同步备忘录</h1>
+            </div>
+            
+            <div class="flex items-center space-x-4">
+                <button id="searchBtn" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <i class="fa fa-search"></i>
+                </button>
+                <button id="syncBtn" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative">
+                    <i class="fa fa-refresh" id="syncIcon"></i>
+                    <span id="syncBadge" class="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-full hidden"></span>
+                </button>
+                <button id="themeToggle" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <i class="fa fa-moon-o dark:hidden"></i>
+                    <i class="fa fa-sun-o hidden dark:inline"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- 搜索框 -->
+        <div id="searchContainer" class="container mx-auto px-4 pb-3 hidden">
+            <div class="relative">
+                <input type="text" id="searchInput" placeholder="搜索备忘录..." 
+                    class="w-full py-2 px-4 pr-10 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary">
+                <button id="clearSearch" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-6">
+        <!-- GitHub设置区域 -->
+        <div id="githubSettings" class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 mb-8 transition-colors duration-300">
+            <h3 class="font-bold mb-3 flex items-center">
+                <i class="fa fa-github mr-2 text-gray-700 dark:text-gray-300"></i>
+                GitHub同步设置
+            </h3>
+            <div class="flex flex-col md:flex-row gap-4">
+                <input type="text" id="githubToken" placeholder="输入GitHub个人访问令牌..." 
+                    class="flex-1 px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary transition-colors">
+                
+                <button id="saveGithubSettings" class="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center">
+                    <i class="fa fa-save mr-2"></i> 保存设置
+                </button>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">
+                如何获取令牌？<a href="https://github.com/settings/tokens/new?scopes=gist" target="_blank" class="text-primary hover:underline">点击创建</a>，需要勾选"gist"权限
+            </p>
+        </div>
+        
+        <!-- 添加备忘录区域 -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 mb-8 transition-colors duration-300">
+            <div class="flex flex-col md:flex-row gap-4">
+                <input type="text" id="noteTitle" placeholder="输入标题..." 
+                    class="flex-1 px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary transition-colors">
+                
+                <input type="text" id="noteContent" placeholder="输入内容..." 
+                    class="flex-2 px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary transition-colors">
+                
+                <button id="addNote" class="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg transition-colors flex items-center justify-center">
+                    <i class="fa fa-plus mr-2"></i> 添加
+                </button>
+            </div>
+        </div>
+        
+        <!-- 备忘录列表控制区 -->
+        <div class="mb-4 flex flex-wrap justify-between items-center gap-2">
+            <h2 class="text-xl font-bold">我的备忘录</h2>
+            <div class="flex space-x-2">
+                <button id="sortByDate" class="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm">
+                    <i class="fa fa-calendar mr-1"></i> 按日期排序
+                </button>
+                <button id="clearAll" class="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm">
+                    <i class="fa fa-trash mr-1"></i> 清空所有
+                </button>
+            </div>
+        </div>
+        
+        <!-- 状态提示 -->
+        <div id="statusMessage" class="mb-4 py-2 px-4 rounded-lg hidden"></div>
+        
+        <!-- 备忘录容器 -->
+        <div id="notesContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- 备忘录将通过JavaScript动态添加 -->
+            <div class="col-span-full text-center py-12 text-gray-500 dark:text-gray-400" id="emptyState">
+                <i class="fa fa-file-text-o text-5xl mb-4 opacity-50"></i>
+                <p>还没有备忘录，点击"添加"按钮创建你的第一条备忘录吧！</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- 编辑备忘录模态框 -->
+    <div id="editModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-lg mx-4 transition-colors duration-300 transform transition-all scale-95 opacity-0" id="modalContent">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">编辑备忘录</h3>
+                <button id="closeModal" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <input type="hidden" id="editNoteId">
+            <div class="flex flex-col gap-4">
+                <input type="text" id="editNoteTitle" placeholder="输入标题..." 
+                    class="px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary transition-colors">
+                
+                <input type="text" id="editNoteContent" placeholder="输入内容..." 
+                    class="px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary transition-colors">
+                
+                <button id="saveEdit" class="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg transition-colors">
+                    保存修改
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 冲突解决模态框 -->
+    <div id="conflictModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-lg mx-4 transition-colors duration-300">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">发现数据冲突</h3>
+                <button id="closeConflictModal" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <p class="mb-4">检测到不同设备上的备忘录有冲突，选择要保留的版本：</p>
+            
+            <div class="mb-4">
+                <div class="font-bold mb-2">本地版本：</div>
+                <div class="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg mb-4" id="localVersion">
+                    <!-- 本地版本内容 -->
+                </div>
+                
+                <div class="font-bold mb-2">云端版本：</div>
+                <div class="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg" id="cloudVersion">
+                    <!-- 云端版本内容 -->
+                </div>
+            </div>
+            
+            <div class="flex gap-4">
+                <button id="keepLocal" class="flex-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 px-6 py-3 rounded-lg transition-colors">
+                    保留本地
+                </button>
+                <button id="keepCloud" class="flex-1 bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg transition-colors">
+                    保留云端
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-white dark:bg-gray-800 py-4 mt-8 shadow-inner transition-colors duration-300">
+        <div class="container mx-auto px-4 text-center text-gray-500 dark:text-gray-400 text-sm">
+            <p>同步备忘录 &copy; 2023 | 数据同步至GitHub Gist</p>
+        </div>
+    </footer>
+
+    <script>
+        // 配置常量
+        const GIST_ID_KEY = 'notes_gist_id';
+        const GITHUB_TOKEN_KEY = 'github_token';
+        const LAST_SYNC_KEY = 'last_sync_time';
+        const AUTO_SYNC_INTERVAL = 60000; // 自动同步间隔（毫秒）
+        
+        // DOM元素
+        const addNoteBtn = document.getElementById('addNote');
+        const noteTitleInput = document.getElementById('noteTitle');
+        const noteContentInput = document.getElementById('noteContent');
+        const notesContainer = document.getElementById('notesContainer');
+        const emptyState = document.getElementById('emptyState');
+        const editModal = document.getElementById('editModal');
+        const modalContent = document.getElementById('modalContent');
+        const closeModalBtn = document.getElementById('closeModal');
+        const saveEditBtn = document.getElementById('saveEdit');
+        const editNoteIdInput = document.getElementById('editNoteId');
+        const editNoteTitleInput = document.getElementById('editNoteTitle');
+        const editNoteContentInput = document.getElementById('editNoteContent');
+        const themeToggleBtn = document.getElementById('themeToggle');
+        const searchBtn = document.getElementById('searchBtn');
+        const searchContainer = document.getElementById('searchContainer');
+        const searchInput = document.getElementById('searchInput');
+        const clearSearchBtn = document.getElementById('clearSearch');
+        const sortByDateBtn = document.getElementById('sortByDate');
+        const clearAllBtn = document.getElementById('clearAll');
+        const syncBtn = document.getElementById('syncBtn');
+        const syncIcon = document.getElementById('syncIcon');
+        const syncBadge = document.getElementById('syncBadge');
+        const githubTokenInput = document.getElementById('githubToken');
+        const saveGithubSettingsBtn = document.getElementById('saveGithubSettings');
+        const statusMessage = document.getElementById('statusMessage');
+        const conflictModal = document.getElementById('conflictModal');
+        const closeConflictModalBtn = document.getElementById('closeConflictModal');
+        const keepLocalBtn = document.getElementById('keepLocal');
+        const keepCloudBtn = document.getElementById('keepCloud');
+        const localVersionEl = document.getElementById('localVersion');
+        const cloudVersionEl = document.getElementById('cloudVersion');
+        
+        // 应用状态
+        let notes = JSON.parse(localStorage.getItem('notes')) || [];
+        let searchTerm = '';
+        let sortByDate = false;
+        let isSyncing = false;
+        let conflictData = null; // 用于存储冲突数据
+        
+        // 初始化
+        function init() {
+            // 检查主题设置
+            if (localStorage.getItem('theme') === 'dark' || 
+                (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+            
+            // 加载GitHub令牌
+            const savedToken = localStorage.getItem(GITHUB_TOKEN_KEY);
+            if (savedToken) {
+                githubTokenInput.value = savedToken;
+            }
+            
+            // 渲染备忘录
+            renderNotes();
+            
+            // 尝试自动同步
+            if (savedToken) {
+                syncNotes();
+            }
+            
+            // 设置自动同步定时器
+            setInterval(() => {
+                if (localStorage.getItem(GITHUB_TOKEN_KEY)) {
+                    syncNotes();
+                }
+            }, AUTO_SYNC_INTERVAL);
+            
+            // 显示上次同步时间
+            updateLastSyncTime();
+        }
+        
+        // 渲染备忘录
+        function renderNotes() {
+            notesContainer.innerHTML = '';
+            
+            // 过滤备忘录
+            let filteredNotes = notes;
+            if (searchTerm) {
+                filteredNotes = notes.filter(note => 
+                    note.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                    note.content.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+            }
+            
+            // 排序备忘录
+            if (sortByDate) {
+                filteredNotes = [...filteredNotes].sort((a, b) => new Date(b.date) - new Date(a.date));
+            }
+            
+            if (filteredNotes.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            
+            emptyState.classList.add('hidden');
+            
+            filteredNotes.forEach(note => {
+                const noteElement = document.createElement('div');
+                noteElement.className = 'bg-white dark:bg-gray-800 rounded-xl p-4 shadow note-shadow note-hover transition-colors duration-300';
+                noteElement.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <h3 class="font-bold text-lg truncate">${note.title}</h3>
+                        <div class="flex space-x-1">
+                            <button class="edit-btn p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" data-id="${note.id}">
+                                <i class="fa fa-pencil text-gray-500"></i>
+                            </button>
+                            <button class="delete-btn p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" data-id="${note.id}">
+                                <i class="fa fa-trash text-gray-500"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-gray-600 dark:text-gray-300 mb-3">${note.content}</p>
+                    <div class="text-xs text-gray-400">
+                        ${new Date(note.date).toLocaleString()}
+                    </div>
+                `;
+                notesContainer.appendChild(noteElement);
+            });
+            
+            // 添加事件监听器
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', openEditModal);
+            });
+            
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', deleteNote);
+            });
+        }
+        
+        // 添加备忘录
+        function addNote() {
+            const title = noteTitleInput.value.trim();
+            const content = noteContentInput.value.trim();
+            
+            if (!title && !content) return;
+            
+            const newNote = {
+                id: Date.now().toString(),
+                title,
+                content,
+                date: new Date().toISOString()
+            };
+            
+            notes.unshift(newNote);
+            saveNotesLocally();
+            renderNotes();
+            
+            // 清空输入
+            noteTitleInput.value = '';
+            noteContentInput.value = '';
+            
+            // 聚焦到标题输入
+            noteTitleInput.focus();
+            
+            // 自动同步
+            if (localStorage.getItem(GITHUB_TOKEN_KEY)) {
+                syncNotes();
+            }
+        }
+        
+        // 打开编辑模态框
+        function openEditModal(e) {
+            const id = e.currentTarget.getAttribute('data-id');
+            const note = notes.find(n => n.id === id);
+            
+            if (note) {
+                editNoteIdInput.value = note.id;
+                editNoteTitleInput.value = note.title;
+                editNoteContentInput.value = note.content;
+                
+                // 显示模态框并添加动画
+                editModal.classList.remove('hidden');
+                setTimeout(() => {
+                    modalContent.classList.remove('scale-95', 'opacity-0');
+                    modalContent.classList.add('scale-100', 'opacity-100');
+                }, 10);
+                
+                editNoteTitleInput.focus();
+            }
+        }
+        
+        // 关闭编辑模态框
+        function closeEditModal() {
+            // 添加关闭动画
+            modalContent.classList.remove('scale-100', 'opacity-100');
+            modalContent.classList.add('scale-95', 'opacity-0');
+            
+            setTimeout(() => {
+                editModal.classList.add('hidden');
+            }, 300);
+        }
+        
+        // 保存编辑
+        function saveEdit() {
+            const id = editNoteIdInput.value;
+            const title = editNoteTitleInput.value.trim();
+            const content = editNoteContentInput.value.trim();
+            
+            if (!title && !content) {
+                closeEditModal();
+                return;
+            }
+            
+            const index = notes.findIndex(n => n.id === id);
+            if (index !== -1) {
+                notes[index] = {
+                    ...notes[index],
+                    title,
+                    content,
+                    date: new Date().toISOString() // 更新日期为编辑时间
+                };
+                saveNotesLocally();
+                renderNotes();
+                closeEditModal();
+                
+                // 自动同步
+                if (localStorage.getItem(GITHUB_TOKEN_KEY)) {
+                    syncNotes();
+                }
+            }
+        }
+        
+        // 删除备忘录
+        function deleteNote(e) {
+            const id = e.currentTarget.getAttribute('data-id');
+            notes = notes.filter(note => note.id !== id);
+            saveNotesLocally();
+            renderNotes();
+            
+            // 自动同步
+            if (localStorage.getItem(GITHUB_TOKEN_KEY)) {
+                syncNotes();
+            }
+        }
+        
+        // 本地保存备忘录
+        function saveNotesLocally() {
+            localStorage.setItem('notes', JSON.stringify(notes));
+        }
+        
+        // 切换主题
+        function toggleTheme() {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+        
+        // 切换搜索框显示
+        function toggleSearch() {
+            searchContainer.classList.toggle('hidden');
+            if (!searchContainer.classList.contains('hidden')) {
+                searchInput.focus();
+            }
+        }
+        
+        // 执行搜索
+        function performSearch() {
+            searchTerm = searchInput.value.trim();
+            renderNotes();
+        }
+        
+        // 清除搜索
+        function clearSearch() {
+            searchInput.value = '';
+            searchTerm = '';
+            renderNotes();
+        }
+        
+        // 切换按日期排序
+        function toggleSortByDate() {
+            sortByDate = !sortByDate;
+            sortByDateBtn.classList.toggle('bg-primary');
+            sortByDateBtn.classList.toggle('text-white');
+            sortByDateBtn.classList.toggle('bg-gray-200');
+            sortByDateBtn.classList.toggle('dark:bg-gray-700');
+            renderNotes();
+        }
+        
+        // 清空所有备忘录
+        function clearAllNotes() {
+            if (confirm('确定要删除所有备忘录吗？此操作不可撤销。')) {
+                notes = [];
+                saveNotesLocally();
+                renderNotes();
+                
+                // 自动同步
+                if (localStorage.getItem(GITHUB_TOKEN_KEY)) {
+                    syncNotes();
+                }
+            }
+        }
+        
+        // 显示状态消息
+        function showStatus(message, isError = false) {
+            statusMessage.textContent = message;
+            statusMessage.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'dark:bg-green-900', 'dark:text-green-100', 
+                                      'bg-red-100', 'text-red-800', 'dark:bg-red-900', 'dark:text-red-100');
+            
+            if (isError) {
+                statusMessage.classList.add('bg-red-100', 'text-red-800', 'dark:bg-red-900', 'dark:text-red-100');
+            } else {
+                statusMessage.classList.add('bg-green-100', 'text-green-800', 'dark:bg-green-900', 'dark:text-green-100');
+            }
+            
+            // 5秒后隐藏消息
+            setTimeout(() => {
+                statusMessage.classList.add('hidden');
+            }, 5000);
+        }
+        
+        // 开始同步动画
+        function startSyncAnimation() {
+            isSyncing = true;
+            syncIcon.classList.add('sync-pulse');
+            syncBtn.disabled = true;
+        }
+        
+        // 结束同步动画
+        function endSyncAnimation() {
+            isSyncing = false;
+            syncIcon.classList.remove('sync-pulse');
+            syncBtn.disabled = false;
+            
+            // 显示同步成功标记，3秒后消失
+            syncBadge.classList.remove('hidden');
+            setTimeout(() => {
+                syncBadge.classList.add('hidden');
+            }, 3000);
+        }
+        
+        // 更新最后同步时间显示
+        function updateLastSyncTime() {
+            const lastSync = localStorage.getItem(LAST_SYNC_KEY);
+            if (lastSync) {
+                showStatus(`最后同步: ${new Date(lastSync).toLocaleString()}`);
+            }
+        }
+        
+        // 保存GitHub设置
+        function saveGithubSettings() {
+            const token = githubTokenInput.value.trim();
+            if (token) {
+                localStorage.setItem(GITHUB_TOKEN_KEY, token);
+                showStatus('GitHub设置已保存，正在同步数据...');
+                syncNotes();
+            } else {
+                localStorage.removeItem(GITHUB_TOKEN_KEY);
+                showStatus('已清除GitHub设置，将仅使用本地存储', true);
+            }
+        }
+        
+        // 获取或创建Gist
+        async function getOrCreateGist(token) {
+            let gistId = localStorage.getItem(GIST_ID_KEY);
+            
+            // 如果已有Gist ID，尝试获取它
+            if (gistId) {
+                try {
+                    const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+                        headers: {
+                            Authorization: `token ${token}`,
+                            Accept: 'application/vnd.github.v3+json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        return gistId;
+                    }
+                } catch (error) {
+                    console.error('获取Gist失败:', error);
+                }
+            }
+            
+            // 创建新的Gist
+            try {
+                const response = await fetch('https://api.github.com/gists', {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `token ${token}`,
+                        'Content-Type': 'application/json',
+                        Accept: 'application/vnd.github.v3+json'
+                    },
+                    body: JSON.stringify({
+                        description: '备忘录同步数据',
+                        public: false,
+                        files: {
+                            'notes.json': {
+                                content: JSON.stringify(notes)
+                            }
+                        }
+                    })
+                });
+                
+                if (response.ok) {
+                    const gist = await response.json();
+                    localStorage.setItem(GIST_ID_KEY, gist.id);
+                    return gist.id;
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.message || '创建Gist失败');
+                }
+            } catch (error) {
+                console.error('创建Gist失败:', error);
+                throw error;
+            }
+        }
+        
+        // 从Gist获取笔记
+        async function getNotesFromGist(token, gistId) {
+            try {
+                const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+                    headers: {
+                        Authorization: `token ${token}`,
+                        Accept: 'application/vnd.github.v3+json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('获取Gist数据失败');
+                }
+                
+                const gist = await response.json();
+                const content = gist.files['notes.json'].content;
+                return JSON.parse(content);
+            } catch (error) {
+                console.error('从Gist获取笔记失败:', error);
+                throw error;
+            }
+        }
+        
+        // 将笔记保存到Gist
+        async function saveNotesToGist(token, gistId, notesData) {
+            try {
+                const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        Authorization: `token ${token}`,
+                        'Content-Type': 'application/json',
+                        Accept: 'application/vnd.github.v3+json'
+                    },
+                    body: JSON.stringify({
+                        files: {
+                            'notes.json': {
+                                content: JSON.stringify(notesData)
+                            }
+                        }
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || '保存到Gist失败');
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('保存笔记到Gist失败:', error);
+                throw error;
+            }
+        }
+        
+        // 检查并解决冲突
+        function checkForConflicts(localNotes, cloudNotes) {
+            // 简单冲突检测：比较笔记数量和最后修改时间
+            if (localNotes.length !== cloudNotes.length) {
+                return true;
+            }
+            
+            // 检查每个笔记的最后修改时间
+            for (let i = 0; i < localNotes.length; i++) {
+                const localNote = localNotes[i];
+                const cloudNote = cloudNotes.find(n => n.id === localNote.id);
+                
+                if (!cloudNote || new Date(localNote.date) > new Date(cloudNote.date)) {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+        
+        // 显示冲突解决模态框
+        function showConflictModal(localNotes, cloudNotes) {
+            conflictData = { local: localNotes, cloud: cloudNotes };
+            
+            // 显示本地版本和云端版本的差异
+            localVersionEl.innerHTML = `
+                <div class="font-medium mb-1">笔记数量: ${localNotes.length}</div>
+                <div class="text-sm">最后修改: ${localNotes.length > 0 ? new Date(localNotes[0].date).toLocaleString() : '无'}</div>
+            `;
+            
+            cloudVersionEl.innerHTML = `
+                <div class="font-medium mb-1">笔记数量: ${cloudNotes.length}</div>
+                <div class="text-sm">最后修改: ${cloudNotes.length > 0 ? new Date(cloudNotes[0].date).toLocaleString() : '无'}</div>
+            `;
+            
+            conflictModal.classList.remove('hidden');
+        }
+        
+        // 处理冲突 - 保留本地版本
+        function keepLocalVersion() {
+            conflictModal.classList.add('hidden');
+            // 使用本地版本并上传到云端
+            saveNotesToGist(
+                localStorage.getItem(GITHUB_TOKEN_KEY),
+                localStorage.getItem(GIST_ID_KEY),
+                conflictData.local
+            ).then(() => {
+                showStatus('已保留本地版本并同步至云端');
+                localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
+                updateLastSyncTime();
+            }).catch(error => {
+                showStatus(`同步失败: ${error.message}`, true);
+            });
+        }
+        
+        // 处理冲突 - 保留云端版本
+        function keepCloudVersion() {
+            conflictModal.classList.add('hidden');
+            // 使用云端版本并更新本地存储
+            notes = conflictData.cloud;
+            saveNotesLocally();
+            renderNotes();
+            
+            showStatus('已使用云端版本更新本地数据');
+            localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
+            updateLastSyncTime();
+        }
+        
+        // 同步笔记
+        async function syncNotes() {
+            if (isSyncing) return;
+            
+            const token = localStorage.getItem(GITHUB_TOKEN_KEY);
+            if (!token) {
+                showStatus('请先设置GitHub令牌', true);
+                return;
+            }
+            
+            try {
+                startSyncAnimation();
+                showStatus('正在同步数据...');
+                
+                // 获取或创建Gist
+                const gistId = await getOrCreateGist(token);
+                
+                // 从Gist获取云端笔记
+                const cloudNotes = await getNotesFromGist(token, gistId);
+                
+                // 检查冲突
+                if (checkForConflicts(notes, cloudNotes)) {
+                    showConflictModal(notes, cloudNotes);
+                    endSyncAnimation();
+                    return;
+                }
+                
+                // 没有冲突，比较哪个更新
+                const localLastModified = notes.length > 0 
+                    ? new Date(notes.reduce((max, note) => new Date(note.date) > new Date(max.date) ? note : max).date)
+                    : new Date(0);
+                    
+                const cloudLastModified = cloudNotes.length > 0
+                    ? new Date(cloudNotes.reduce((max, note) => new Date(note.date) > new Date(max.date) ? note : max).date)
+                    : new Date(0);
+                
+                // 本地更新，上传到云端
+                if (localLastModified > cloudLastModified) {
+                    await saveNotesToGist(token, gistId, notes);
+                    showStatus('本地数据更新至云端');
+                } 
+                // 云端更新，下载到本地
+                else if (cloudLastModified > localLastModified) {
+                    notes = cloudNotes;
+                    saveNotesLocally();
+                    renderNotes();
+                    showStatus('已从云端获取最新数据');
+                } else {
+                    showStatus('数据已同步，无需更新');
+                }
+                
+                // 更新最后同步时间
+                localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
+                updateLastSyncTime();
+                
+            } catch (error) {
+                console.error('同步失败:', error);
+                showStatus(`同步失败: ${error.message || '未知错误'}`, true);
+            } finally {
+                endSyncAnimation();
+            }
+        }
+        
+        // 事件监听器
+        addNoteBtn.addEventListener('click', addNote);
+        closeModalBtn.addEventListener('click', closeEditModal);
+        saveEditBtn.addEventListener('click', saveEdit);
+        themeToggleBtn.addEventListener('click', toggleTheme);
+        searchBtn.addEventListener('click', toggleSearch);
+        searchInput.addEventListener('input', performSearch);
+        clearSearchBtn.addEventListener('click', clearSearch);
+        sortByDateBtn.addEventListener('click', toggleSortByDate);
+        clearAllBtn.addEventListener('click', clearAllNotes);
+        syncBtn.addEventListener('click', syncNotes);
+        saveGithubSettingsBtn.addEventListener('click', saveGithubSettings);
+        closeConflictModalBtn.addEventListener('click', () => conflictModal.classList.add('hidden'));
+        keepLocalBtn.addEventListener('click', keepLocalVersion);
+        keepCloudBtn.addEventListener('click', keepCloudVersion);
+        
+        // 按Enter键添加备忘录
+        noteContentInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addNote();
+            }
+        });
+        
+        // 点击模态框外部关闭
+        editModal.addEventListener('click', (e) => {
+            if (e.target === editModal) {
+                closeEditModal();
+            }
+        });
+        
+        // 初始化应用
+        init();
+    </script>
+</body>
+</html>
