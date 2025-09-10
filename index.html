@@ -84,7 +84,7 @@
         <div class="container mx-auto px-4 py-3 flex justify-between items-center">
             <div class="flex items-center space-x-2">
                 <i class="fa fa-sticky-note text-primary text-2xl"></i>
-                <h1 class="text-xl font-bold">同步备忘录</h1>
+                <h1 class="text-xl font-bold">云端同步备忘录   power by 无处不宅</h1>
             </div>
             
             <div class="flex items-center space-x-4">
@@ -107,7 +107,7 @@
         <!-- GitHub设置区域（带复制功能） -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 mb-6">
             <h3 class="font-bold mb-3 flex items-center">
-                <i class="fa fa-github mr-2"></i> GitHub同步设置
+                <i class="fa fa-github mr-2"></i> 云端同步设置
             </h3>
             <div class="flex flex-col md:flex-row gap-4 mb-3">
                 <input type="text" id="githubToken" placeholder="GitHub个人访问令牌（需gist权限）" 
@@ -121,13 +121,13 @@
             <!-- 显示当前连接的Gist ID，带复制按钮 -->
             <div class="text-sm text-gray-600 dark:text-gray-300 mb-2">
                 <div class="flex items-center">
-                    <span class="font-medium mr-2">当前Gist ID：</span>
+                    <span class="font-medium mr-2">当前同步ID：</span>
                     <span id="currentGistId" class="font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded mr-2">未连接</span>
                     <button id="copyGistIdBtn" class="text-primary hover:text-primary/80 text-xs p-1" title="复制Gist ID">
                         <i class="fa fa-copy mr-1"></i>复制
                     </button>
                 </div>
-                <p class="mt-1 text-xs text-gray-500">（手机和电脑需显示相同的Gist ID才会同步）</p>
+                <p class="mt-1 text-xs text-gray-500">（两台终端需显示相同的同步ID才能同步）</p>
             </div>
             
             <!-- 手动输入Gist ID的选项 -->
@@ -136,7 +136,7 @@
                     class="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm">
                 
                 <button id="setManualGistId" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 px-4 py-2 rounded-lg text-sm">
-                    手动设置Gist ID
+                    手动设置同步ID
                 </button>
             </div>
         </div>
