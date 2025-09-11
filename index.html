@@ -71,6 +71,18 @@
                 width: 100%;
                 height: 100%;
             }
+            .file-preview {
+                transition: transform 0.2s;
+            }
+            .file-preview:hover {
+                transform: scale(1.02);
+            }
+            .upload-progress {
+                height: 4px;
+                background: linear-gradient(90deg, #4F46E5 0%, #818CF8 100%);
+                width: 0%;
+                transition: width 0.3s ease;
+            }
         }
     </style>
 </head>
@@ -84,7 +96,7 @@
         <div class="container mx-auto px-4 py-3 flex justify-between items-center">
             <div class="flex items-center space-x-2">
                 <i class="fa fa-sticky-note text-primary text-2xl"></i>
-                <h1 class="text-xl font-bold">云端同步备忘录<br>power by 无处不宅</h1>
+                <h1 class="text-xl font-bold">同步备忘录<br>power of 无处不宅</h1>
             </div>
             
             <div class="flex items-center space-x-4">
@@ -107,7 +119,7 @@
         <!-- GitHub设置区域（带复制功能） -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 mb-6">
             <h3 class="font-bold mb-3 flex items-center">
-                <i class="fa fa-github mr-2"></i> 云端同步设置
+                <i class="fa fa-github mr-2"></i> GitHub同步设置
             </h3>
             <div class="flex flex-col md:flex-row gap-4 mb-3">
                 <input type="text" id="githubToken" placeholder="GitHub个人访问令牌（需gist权限）" 
@@ -121,38 +133,60 @@
             <!-- 显示当前连接的Gist ID，带复制按钮 -->
             <div class="text-sm text-gray-600 dark:text-gray-300 mb-2">
                 <div class="flex items-center">
-                    <span class="font-medium mr-2">当前同步ID：</span>
+                    <span class="font-medium mr-2">当前Gist ID：</span>
                     <span id="currentGistId" class="font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded mr-2">未连接</span>
                     <button id="copyGistIdBtn" class="text-primary hover:text-primary/80 text-xs p-1" title="复制Gist ID">
                         <i class="fa fa-copy mr-1"></i>复制
                     </button>
                 </div>
-                <p class="mt-1 text-xs text-gray-500">（两台终端需显示相同的同步ID才能同步）</p>
+                <p class="mt-1 text-xs text-gray-500">（两台终端需显示相同的Gist ID才会同步）</p>
             </div>
             
             <!-- 手动输入Gist ID的选项 -->
             <div class="flex flex-col md:flex-row gap-2 mt-3">
-                <input type="text" id="manualGistId" placeholder="手动输入同步ID（粘贴从需要配对的设备复制的ID）" 
+                <input type="text" id="manualGistId" placeholder="手动输入Gist ID（粘贴从其他设备复制的ID）" 
                     class="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm">
                 
                 <button id="setManualGistId" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 px-4 py-2 rounded-lg text-sm">
-                    手动设置同步ID
+                    手动设置Gist ID
                 </button>
             </div>
         </div>
         
         <!-- 添加备忘录区域 -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 mb-6">
-            <div class="flex flex-col md:flex-row gap-4">
-                <input type="text" id="noteTitle" placeholder="标题" 
-                    class="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
+            <div class="flex flex-col gap-4">
+                <div class="flex flex-col md:flex-row gap-4">
+                    <input type="text" id="noteTitle" placeholder="标题" 
+                        class="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
+                    
+                    <button id="addNote" class="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-lg">
+                        <i class="fa fa-plus mr-1"></i> 添加
+                    </button>
+                </div>
                 
-                <input type="text" id="noteContent" placeholder="内容" 
-                    class="flex-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
+                <textarea id="noteContent" placeholder="内容" 
+                    class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 min-h-[100px]"></textarea>
                 
-                <button id="addNote" class="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-lg">
-                    <i class="fa fa-plus mr-1"></i> 添加
-                </button>
+                <!-- 文件上传区域 -->
+                <div>
+                    <label class="block text-sm font-medium mb-2">添加文件或图片</label>
+                    <div class="flex flex-wrap gap-3">
+                        <label class="flex items-center justify-center w-16 h-16 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                            <input type="file" id="fileUpload" class="hidden" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">
+                            <div class="text-center">
+                                <i class="fa fa-cloud-upload text-gray-400"></i>
+                                <p class="text-xs mt-1 text-gray-500">上传</p>
+                            </div>
+                        </label>
+                        
+                        <!-- 文件预览区域 -->
+                        <div id="filePreviews" class="flex flex-wrap gap-3"></div>
+                    </div>
+                    <div id="uploadProgressContainer" class="w-full h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mt-2 hidden">
+                        <div id="uploadProgressBar" class="upload-progress"></div>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -188,8 +222,14 @@
                 </button>
             </div>
             
-            <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-                <p id="fullscreenContent" class="text-lg leading-relaxed"></p>
+            <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mb-6">
+                <p id="fullscreenContent" class="text-lg leading-relaxed whitespace-pre-line"></p>
+            </div>
+            
+            <!-- 附件显示区域 -->
+            <div id="fullscreenFilesContainer" class="mb-6">
+                <h4 class="font-medium mb-3 text-lg">附件</h4>
+                <div id="fullscreenFiles" class="flex flex-wrap gap-3"></div>
             </div>
             
             <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-500">
@@ -204,9 +244,19 @@
         </div>
     </div>
 
+    <!-- 图片查看器模态框 -->
+    <div id="imageViewerModal" class="fixed inset-0 bg-black/90 flex items-center justify-center z-50 hidden">
+        <div class="max-w-4xl max-h-[90vh] p-4">
+            <button id="closeImageViewerBtn" class="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full hover:bg-black/70">
+                <i class="fa fa-times"></i>
+            </button>
+            <img id="imageViewer" src="" alt="图片预览" class="max-w-full max-h-[85vh] object-contain">
+        </div>
+    </div>
+
     <!-- 编辑备忘录模态框 -->
     <div id="editModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-md mx-4 modal-enter">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-2xl mx-4 modal-enter max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold">编辑备忘录</h3>
                 <button id="closeEditModal" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
@@ -221,6 +271,23 @@
                 
                 <textarea id="editNoteContent" placeholder="输入内容..." 
                     class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 min-h-[120px]"></textarea>
+                
+                <!-- 编辑时的文件上传区域 -->
+                <div>
+                    <label class="block text-sm font-medium mb-2">附件</label>
+                    <div class="flex flex-wrap gap-3">
+                        <label class="flex items-center justify-center w-16 h-16 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                            <input type="file" id="editFileUpload" class="hidden" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">
+                            <div class="text-center">
+                                <i class="fa fa-cloud-upload text-gray-400"></i>
+                                <p class="text-xs mt-1 text-gray-500">添加</p>
+                            </div>
+                        </label>
+                        
+                        <!-- 编辑时的文件预览区域 -->
+                        <div id="editFilePreviews" class="flex flex-wrap gap-3"></div>
+                    </div>
+                </div>
                 
                 <div class="flex gap-3 mt-2">
                     <button id="deleteNoteBtn" class="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg">
@@ -239,7 +306,7 @@
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-md mx-4 modal-enter">
             <h3 class="text-xl font-bold mb-3">确认删除</h3>
             <p class="mb-5 text-gray-600 dark:text-gray-300">
-                确定要删除这条备忘录吗？此操作将同步到所有设备，且无法撤销！
+                确定要删除这条备忘录吗？此操作将同步到所有设备，且无法撤销。相关文件也将被删除。
             </p>
             
             <input type="hidden" id="deleteNoteId">
@@ -285,6 +352,8 @@
         const GITHUB_TOKEN_KEY = 'github_token';
         const LAST_SYNC_KEY = 'last_sync_time';
         const MAX_RETRY_ATTEMPTS = 3; // 删除失败最大重试次数
+        const MAX_FILE_SIZE = 10 * 1024 * 1024; // 最大文件大小 10MB
+        const TEMP_FILES_KEY = 'temp_upload_files'; // 临时存储上传的文件
         
         // DOM元素
         const addNoteBtn = document.getElementById('addNote');
@@ -307,17 +376,32 @@
         const manualGistIdInput = document.getElementById('manualGistId');
         const setManualGistIdBtn = document.getElementById('setManualGistId');
         
+        // 文件上传相关元素
+        const fileUploadInput = document.getElementById('fileUpload');
+        const filePreviewsContainer = document.getElementById('filePreviews');
+        const editFileUploadInput = document.getElementById('editFileUpload');
+        const editFilePreviewsContainer = document.getElementById('editFilePreviews');
+        const uploadProgressContainer = document.getElementById('uploadProgressContainer');
+        const uploadProgressBar = document.getElementById('uploadProgressBar');
+        
         // 全屏查看相关元素
         const fullscreenViewModal = document.getElementById('fullscreenViewModal');
         const fullscreenTitle = document.getElementById('fullscreenTitle');
         const fullscreenContent = document.getElementById('fullscreenContent');
         const fullscreenDate = document.getElementById('fullscreenDate');
+        const fullscreenFilesContainer = document.getElementById('fullscreenFilesContainer');
+        const fullscreenFiles = document.getElementById('fullscreenFiles');
         const closeFullscreenBtn = document.getElementById('closeFullscreenBtn');
         const fullscreenEditBtn = document.getElementById('fullscreenEditBtn');
         const fullscreenNoteIdInput = document.createElement('input');
         fullscreenNoteIdInput.type = 'hidden';
         fullscreenNoteIdInput.id = 'fullscreenNoteId';
         document.body.appendChild(fullscreenNoteIdInput);
+        
+        // 图片查看器相关元素
+        const imageViewerModal = document.getElementById('imageViewerModal');
+        const imageViewer = document.getElementById('imageViewer');
+        const closeImageViewerBtn = document.getElementById('closeImageViewerBtn');
         
         // 编辑和删除相关元素
         const editModal = document.getElementById('editModal');
@@ -338,8 +422,9 @@
         const deleteFailureReasonEl = document.getElementById('deleteFailureReason');
         
         // 应用状态
-        // 笔记结构: { id, title, content, date, isDeleted }
+        // 笔记结构: { id, title, content, date, isDeleted, files: [{id, name, type, size, content, isImage}] }
         let notes = JSON.parse(localStorage.getItem('notes')) || [];
+        let tempFiles = JSON.parse(localStorage.getItem(TEMP_FILES_KEY)) || {}; // 临时存储正在上传的文件
         let isSyncing = false;
         let deleteInProgress = false; // 跟踪删除操作状态
         
@@ -358,10 +443,11 @@
             }
             updateGistIdDisplay();
             
-            // 确保现有笔记都有isDeleted属性
+            // 确保现有笔记结构完整
             notes = notes.map(note => ({
                 ...note,
-                isDeleted: note.isDeleted || false
+                isDeleted: note.isDeleted || false,
+                files: note.files || []
             }));
             saveNotesLocally();
             
@@ -370,6 +456,168 @@
             
             // 显示日志区域
             logSync('应用已初始化');
+            
+            // 绑定文件上传事件
+            fileUploadInput.addEventListener('change', handleFileUpload);
+            editFileUploadInput.addEventListener('change', handleEditFileUpload);
+        }
+        
+        // 处理文件上传
+        function handleFileUpload(e) {
+            const files = e.target.files;
+            if (!files.length) return;
+            
+            processFiles(files, filePreviewsContainer);
+            
+            // 清空input值，允许重复上传同一文件
+            fileUploadInput.value = '';
+        }
+        
+        // 处理编辑时的文件上传
+        function handleEditFileUpload(e) {
+            const files = e.target.files;
+            if (!files.length) return;
+            
+            processFiles(files, editFilePreviewsContainer);
+            
+            // 清空input值，允许重复上传同一文件
+            editFileUploadInput.value = '';
+        }
+        
+        // 处理并预览文件
+        function processFiles(files, container) {
+            Array.from(files).forEach(file => {
+                // 检查文件大小
+                if (file.size > MAX_FILE_SIZE) {
+                    showStatus(`文件 ${file.name} 过大（超过10MB）`, true);
+                    return;
+                }
+                
+                const fileId = `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                
+                // 创建文件预览
+                const filePreview = document.createElement('div');
+                filePreview.className = 'file-preview bg-gray-100 dark:bg-gray-700 rounded-lg p-2 flex flex-col items-center justify-center w-16 h-16 relative';
+                filePreview.setAttribute('data-file-id', fileId);
+                
+                // 读取文件内容
+                const reader = new FileReader();
+                
+                // 检查是否为图片
+                const isImage = file.type.startsWith('image/');
+                
+                if (isImage) {
+                    reader.onload = function(e) {
+                        filePreview.innerHTML = `
+                            <img src="${e.target.result}" alt="${file.name}" class="max-w-full max-h-[60px] object-contain rounded">
+                            <p class="text-xs mt-1 text-center truncate w-full">${file.name}</p>
+                            <button class="remove-file absolute top-1 right-1 bg-white/80 dark:bg-gray-800/80 rounded-full w-5 h-5 flex items-center justify-center text-red-500 hover:text-red-700">
+                                <i class="fa fa-times text-xs"></i>
+                            </button>
+                        `;
+                        
+                        // 保存文件到临时存储
+                        saveFileToTempStorage(fileId, {
+                            name: file.name,
+                            type: file.type,
+                            size: file.size,
+                            content: e.target.result,
+                            isImage: true
+                        });
+                        
+                        // 添加删除文件事件
+                        filePreview.querySelector('.remove-file').addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            removeFilePreview(fileId, container);
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    // 非图片文件
+                    let fileIcon = 'fa-file-o';
+                    if (file.type.includes('pdf')) fileIcon = 'fa-file-pdf-o';
+                    else if (file.type.includes('word')) fileIcon = 'fa-file-word-o';
+                    else if (file.type.includes('excel')) fileIcon = 'fa-file-excel-o';
+                    else if (file.type.includes('text')) fileIcon = 'fa-file-text-o';
+                    
+                    reader.onload = function(e) {
+                        filePreview.innerHTML = `
+                            <i class="fa ${fileIcon} text-2xl text-gray-500"></i>
+                            <p class="text-xs mt-1 text-center truncate w-full">${file.name}</p>
+                            <button class="remove-file absolute top-1 right-1 bg-white/80 dark:bg-gray-800/80 rounded-full w-5 h-5 flex items-center justify-center text-red-500 hover:text-red-700">
+                                <i class="fa fa-times text-xs"></i>
+                            </button>
+                        `;
+                        
+                        // 对于大文件，我们只存储文件名和类型，在上传时再读取内容
+                        // 这里为了简单，小文件直接存储base64
+                        if (file.size < 1 * 1024 * 1024) { // 小于1MB的文件
+                            saveFileToTempStorage(fileId, {
+                                name: file.name,
+                                type: file.type,
+                                size: file.size,
+                                content: e.target.result,
+                                isImage: false
+                            });
+                        } else {
+                            saveFileToTempStorage(fileId, {
+                                name: file.name,
+                                type: file.type,
+                                size: file.size,
+                                content: null, // 大文件内容稍后处理
+                                isImage: false,
+                                needsProcessing: true,
+                                lastModified: file.lastModified
+                            });
+                        }
+                        
+                        // 添加删除文件事件
+                        filePreview.querySelector('.remove-file').addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            removeFilePreview(fileId, container);
+                        });
+                    };
+                    
+                    if (file.size < 1 * 1024 * 1024) {
+                        reader.readAsDataURL(file);
+                    } else {
+                        // 大文件先不读取内容
+                        reader.onload = reader.onload; // 已经定义
+                        reader.readAsArrayBuffer(file); // 只是触发onload
+                    }
+                }
+                
+                container.appendChild(filePreview);
+            });
+        }
+        
+        // 保存文件到临时存储
+        function saveFileToTempStorage(fileId, fileData) {
+            tempFiles[fileId] = fileData;
+            localStorage.setItem(TEMP_FILES_KEY, JSON.stringify(tempFiles));
+        }
+        
+        // 从临时存储中移除文件
+        function removeFileFromTempStorage(fileId) {
+            if (tempFiles[fileId]) {
+                delete tempFiles[fileId];
+                localStorage.setItem(TEMP_FILES_KEY, JSON.stringify(tempFiles));
+            }
+        }
+        
+        // 移除文件预览
+        function removeFilePreview(fileId, container) {
+            const preview = container.querySelector(`[data-file-id="${fileId}"]`);
+            if (preview) {
+                container.removeChild(preview);
+                removeFileFromTempStorage(fileId);
+            }
+        }
+        
+        // 获取临时文件列表
+        function getTempFiles(container) {
+            const fileIds = Array.from(container.querySelectorAll('[data-file-id]')).map(el => el.getAttribute('data-file-id'));
+            return fileIds.map(id => ({...tempFiles[id], id})).filter(Boolean);
         }
         
         // 渲染笔记 - 过滤已删除的笔记
@@ -390,6 +638,31 @@
                 const noteElement = document.createElement('div');
                 noteElement.className = 'bg-white dark:bg-gray-800 rounded-xl p-4 shadow hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer note-card';
                 noteElement.setAttribute('data-id', note.id);
+                
+                // 生成文件缩略图预览
+                let filesPreview = '';
+                if (note.files && note.files.length > 0) {
+                    const fileIcons = note.files.map(file => {
+                        if (file.isImage) {
+                            return `<img src="${file.content}" alt="${file.name}" class="w-6 h-6 rounded object-cover mr-1">`;
+                        } else {
+                            let icon = 'fa-file-o';
+                            if (file.type.includes('pdf')) icon = 'fa-file-pdf-o';
+                            else if (file.type.includes('word')) icon = 'fa-file-word-o';
+                            else if (file.type.includes('excel')) icon = 'fa-file-excel-o';
+                            else if (file.type.includes('text')) icon = 'fa-file-text-o';
+                            return `<i class="fa ${icon} text-gray-500 mr-1"></i>`;
+                        }
+                    }).join('');
+                    
+                    filesPreview = `
+                        <div class="mt-2 flex items-center">
+                            <span class="text-xs text-gray-500 mr-1">附件: ${note.files.length}个</span>
+                            <div class="flex">${fileIcons}</div>
+                        </div>
+                    `;
+                }
+                
                 noteElement.innerHTML = `
                     <div class="flex justify-between items-start mb-2">
                         <h3 class="font-bold">${note.title}</h3>
@@ -401,6 +674,7 @@
                     <div class="text-xs text-gray-400">
                         ${new Date(note.date).toLocaleString()}
                     </div>
+                    ${filesPreview}
                 `;
                 notesContainer.appendChild(noteElement);
             });
@@ -435,8 +709,112 @@
                 fullscreenContent.textContent = note.content;
                 fullscreenDate.textContent = new Date(note.date).toLocaleString();
                 
+                // 显示文件
+                if (note.files && note.files.length > 0) {
+                    fullscreenFilesContainer.classList.remove('hidden');
+                    fullscreenFiles.innerHTML = '';
+                    
+                    note.files.forEach(file => {
+                        const fileElement = document.createElement('div');
+                        fileElement.className = 'file-preview bg-gray-100 dark:bg-gray-700 rounded-lg p-3 flex items-center gap-2 max-w-xs cursor-pointer';
+                        
+                        if (file.isImage) {
+                            fileElement.innerHTML = `
+                                <img src="${file.content}" alt="${file.name}" class="w-10 h-10 rounded object-cover">
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium truncate">${file.name}</p>
+                                    <p class="text-xs text-gray-500">${formatFileSize(file.size)}</p>
+                                </div>
+                            `;
+                            
+                            // 点击图片查看大图
+                            fileElement.addEventListener('click', () => {
+                                imageViewer.src = file.content;
+                                imageViewer.alt = file.name;
+                                imageViewerModal.classList.remove('hidden');
+                            });
+                        } else {
+                            let fileIcon = 'fa-file-o';
+                            if (file.type.includes('pdf')) fileIcon = 'fa-file-pdf-o';
+                            else if (file.type.includes('word')) fileIcon = 'fa-file-word-o';
+                            else if (file.type.includes('excel')) fileIcon = 'fa-file-excel-o';
+                            else if (file.type.includes('text')) fileIcon = 'fa-file-text-o';
+                            
+                            fileElement.innerHTML = `
+                                <i class="fa ${fileIcon} text-2xl text-gray-500"></i>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium truncate">${file.name}</p>
+                                    <p class="text-xs text-gray-500">${formatFileSize(file.size)}</p>
+                                </div>
+                                <button class="download-file p-2 text-primary hover:text-primary/80">
+                                    <i class="fa fa-download"></i>
+                                </button>
+                            `;
+                            
+                            // 点击下载文件
+                            fileElement.querySelector('.download-file').addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                downloadFile(file);
+                            });
+                        }
+                        
+                        fullscreenFiles.appendChild(fileElement);
+                    });
+                } else {
+                    fullscreenFilesContainer.classList.add('hidden');
+                }
+                
                 fullscreenViewModal.classList.remove('hidden');
             }
+        }
+        
+        // 下载文件
+        function downloadFile(file) {
+            try {
+                if (!file.content) {
+                    showStatus('文件内容不可用', true);
+                    return;
+                }
+                
+                // 解析base64内容
+                const base64Data = file.content.split(',')[1];
+                const byteCharacters = atob(base64Data);
+                const byteNumbers = new Array(byteCharacters.length);
+                
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: file.type });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = file.name;
+                document.body.appendChild(a);
+                a.click();
+                
+                // 清理
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+                
+                logSync(`已下载文件: ${file.name}`);
+            } catch (error) {
+                console.error('文件下载失败:', error);
+                showStatus(`文件下载失败: ${error.message}`, true);
+            }
+        }
+        
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
         
         // 关闭全屏查看模态框
@@ -452,6 +830,12 @@
             }, 300);
         }
         
+        // 关闭图片查看器
+        function closeImageViewer() {
+            imageViewerModal.classList.add('hidden');
+            imageViewer.src = '';
+        }
+        
         // 从全屏查看切换到编辑
         function switchToEditFromFullscreen() {
             const noteId = fullscreenNoteIdInput.value;
@@ -461,43 +845,64 @@
             setTimeout(() => {
                 const note = notes.find(n => n.id === noteId && !n.isDeleted);
                 if (note) {
-                    editNoteIdInput.value = note.id;
-                    editNoteTitleInput.value = note.title;
-                    editNoteContentInput.value = note.content;
-                    editModal.classList.remove('hidden');
-                    editNoteTitleInput.focus();
+                    openEditModalWithNote(note);
                 }
             }, 350);
         }
         
-        // 添加笔记
-        function addNote() {
-            const title = noteTitleInput.value.trim();
-            const content = noteContentInput.value.trim();
+        // 打开编辑模态框并填充数据
+        function openEditModalWithNote(note) {
+            editNoteIdInput.value = note.id;
+            editNoteTitleInput.value = note.title;
+            editNoteContentInput.value = note.content;
             
-            if (!title && !content) return;
-            
-            const newNote = {
-                id: Date.now().toString(),
-                title,
-                content,
-                date: new Date().toISOString(),
-                isDeleted: false // 新增笔记默认为未删除
-            };
-            
-            notes.unshift(newNote);
-            saveNotesLocally();
-            renderNotes();
-            logSync(`已添加笔记: ${title || '无标题'}`);
-            
-            // 清空输入
-            noteTitleInput.value = '';
-            noteContentInput.value = '';
-            
-            // 自动同步
-            if (localStorage.getItem(GITHUB_TOKEN_KEY)) {
-                syncNotes();
+            // 清空并添加现有文件
+            editFilePreviewsContainer.innerHTML = '';
+            if (note.files && note.files.length > 0) {
+                note.files.forEach(file => {
+                    const filePreview = document.createElement('div');
+                    filePreview.className = 'file-preview bg-gray-100 dark:bg-gray-700 rounded-lg p-2 flex flex-col items-center justify-center w-16 h-16 relative';
+                    filePreview.setAttribute('data-file-id', file.id);
+                    
+                    // 保存到临时存储，以便编辑时可以删除
+                    saveFileToTempStorage(file.id, file);
+                    
+                    if (file.isImage) {
+                        filePreview.innerHTML = `
+                            <img src="${file.content}" alt="${file.name}" class="max-w-full max-h-[60px] object-contain rounded">
+                            <p class="text-xs mt-1 text-center truncate w-full">${file.name}</p>
+                            <button class="remove-file absolute top-1 right-1 bg-white/80 dark:bg-gray-800/80 rounded-full w-5 h-5 flex items-center justify-center text-red-500 hover:text-red-700">
+                                <i class="fa fa-times text-xs"></i>
+                            </button>
+                        `;
+                    } else {
+                        let fileIcon = 'fa-file-o';
+                        if (file.type.includes('pdf')) fileIcon = 'fa-file-pdf-o';
+                        else if (file.type.includes('word')) fileIcon = 'fa-file-word-o';
+                        else if (file.type.includes('excel')) fileIcon = 'fa-file-excel-o';
+                        else if (file.type.includes('text')) fileIcon = 'fa-file-text-o';
+                        
+                        filePreview.innerHTML = `
+                            <i class="fa ${fileIcon} text-2xl text-gray-500"></i>
+                            <p class="text-xs mt-1 text-center truncate w-full">${file.name}</p>
+                            <button class="remove-file absolute top-1 right-1 bg-white/80 dark:bg-gray-800/80 rounded-full w-5 h-5 flex items-center justify-center text-red-500 hover:text-red-700">
+                                <i class="fa fa-times text-xs"></i>
+                            </button>
+                        `;
+                    }
+                    
+                    // 添加删除文件事件
+                    filePreview.querySelector('.remove-file').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        removeFilePreview(file.id, editFilePreviewsContainer);
+                    });
+                    
+                    editFilePreviewsContainer.appendChild(filePreview);
+                });
             }
+            
+            editModal.classList.remove('hidden');
+            editNoteTitleInput.focus();
         }
         
         // 打开编辑模态框
@@ -506,11 +911,7 @@
             const note = notes.find(n => n.id === id && !n.isDeleted);
             
             if (note) {
-                editNoteIdInput.value = note.id;
-                editNoteTitleInput.value = note.title;
-                editNoteContentInput.value = note.content;
-                editModal.classList.remove('hidden');
-                editNoteTitleInput.focus();
+                openEditModalWithNote(note);
             }
         }
         
@@ -524,7 +925,54 @@
                 editModal.classList.add('hidden');
                 modalContent.classList.remove('modal-exit');
                 modalContent.classList.add('modal-enter');
+                // 清空编辑时的文件预览
+                editFilePreviewsContainer.innerHTML = '';
+                // 清除相关的临时文件
+                Array.from(editFilePreviewsContainer.querySelectorAll('[data-file-id]')).forEach(el => {
+                    removeFileFromTempStorage(el.getAttribute('data-file-id'));
+                });
             }, 300);
+        }
+        
+        // 添加笔记
+        function addNote() {
+            const title = noteTitleInput.value.trim();
+            const content = noteContentInput.value.trim();
+            
+            if (!title && !content && filePreviewsContainer.children.length === 0) {
+                showStatus('请输入内容或添加文件', true);
+                return;
+            }
+            
+            // 获取上传的文件
+            const files = getTempFiles(filePreviewsContainer);
+            
+            const newNote = {
+                id: Date.now().toString(),
+                title,
+                content,
+                date: new Date().toISOString(),
+                isDeleted: false,
+                files: files
+            };
+            
+            notes.unshift(newNote);
+            saveNotesLocally();
+            renderNotes();
+            logSync(`已添加笔记: ${title || '无标题'}，包含 ${files.length} 个文件`);
+            
+            // 清空输入
+            noteTitleInput.value = '';
+            noteContentInput.value = '';
+            filePreviewsContainer.innerHTML = '';
+            
+            // 清除临时文件
+            files.forEach(file => removeFileFromTempStorage(file.id));
+            
+            // 自动同步
+            if (localStorage.getItem(GITHUB_TOKEN_KEY)) {
+                syncNotes();
+            }
         }
         
         // 保存编辑
@@ -533,7 +981,10 @@
             const title = editNoteTitleInput.value.trim();
             const content = editNoteContentInput.value.trim();
             
-            if (!title && !content) {
+            // 获取编辑时的文件
+            const files = getTempFiles(editFilePreviewsContainer);
+            
+            if (!title && !content && files.length === 0) {
                 closeEditModal();
                 return;
             }
@@ -545,12 +996,13 @@
                     ...notes[index],
                     title,
                     content,
+                    files: files,
                     date: new Date().toISOString() // 更新修改时间
                 };
                 
                 saveNotesLocally();
                 renderNotes();
-                logSync(`已更新笔记: ${oldTitle || '无标题'}`);
+                logSync(`已更新笔记: ${oldTitle || '无标题'}，包含 ${files.length} 个文件`);
                 closeEditModal();
                 
                 // 立即同步更新
@@ -659,8 +1111,12 @@
                     ? JSON.parse(gistData.files['notes.json'].content || '[]')
                     : [];
                 
-                // 确保云端笔记有isDeleted属性
-                cloudNotes = cloudNotes.map(n => ({...n, isDeleted: n.isDeleted || false}));
+                // 确保云端笔记有必要的属性
+                cloudNotes = cloudNotes.map(n => ({
+                    ...n, 
+                    isDeleted: n.isDeleted || false,
+                    files: n.files || []
+                }));
                 
                 // 2. 在云端数据中标记该笔记为已删除
                 logSync(`[尝试 ${attempt + 1}] 在云端数据中标记笔记为删除...`);
@@ -816,7 +1272,7 @@
             }
         }
         
-        // 同步逻辑 - 核心改进：处理删除标记
+        // 同步逻辑 - 处理文件和删除标记
         async function syncNotes(force = false) {
             return new Promise(async (resolve, reject) => {
                 if (isSyncing || deleteInProgress) {
@@ -886,12 +1342,16 @@
                         ? JSON.parse(gistData.files['notes.json'].content || '[]')
                         : [];
                     
-                    // 确保云端笔记有isDeleted属性
-                    cloudNotes = cloudNotes.map(n => ({...n, isDeleted: n.isDeleted || false}));
+                    // 确保云端笔记结构完整
+                    cloudNotes = cloudNotes.map(n => ({
+                        ...n, 
+                        isDeleted: n.isDeleted || false,
+                        files: n.files || []
+                    }));
                     
-                    logSync(`从云端获取到 ${cloudNotes.length} 条笔记（包含删除标记）`);
+                    logSync(`从云端获取到 ${cloudNotes.length} 条笔记（包含删除标记和文件）`);
                     
-                    // 处理删除标记同步 - 核心改进点
+                    // 处理删除标记同步
                     // 1. 找出所有被标记为删除的笔记ID
                     const deletedNoteIds = new Set();
                     notes.forEach(note => {
@@ -940,6 +1400,8 @@
                         
                         if (isDeleted) {
                             logSync(`合并: 笔记 ${noteId.substring(0, 6)}... 被标记为删除`);
+                        } else if (selectedNote.files && selectedNote.files.length > 0) {
+                            logSync(`合并: 笔记 ${noteId.substring(0, 6)}... 包含 ${selectedNote.files.length} 个文件`);
                         }
                     });
                     
@@ -949,7 +1411,12 @@
                     renderNotes();
                     
                     // 4. 上传合并后的结果到云端
-                    logSync(`上传 ${notes.length} 条笔记（包含删除标记）到云端`);
+                    logSync(`上传 ${notes.length} 条笔记（包含文件数据）到云端`);
+                    
+                    // 显示上传进度
+                    uploadProgressContainer.classList.remove('hidden');
+                    uploadProgressBar.style.width = '30%';
+                    
                     const updateResponse = await fetch(`https://api.github.com/gists/${gistId}`, {
                         method: 'PATCH',
                         headers: {
@@ -961,6 +1428,8 @@
                         })
                     });
                     
+                    uploadProgressBar.style.width = '100%';
+                    
                     if (!updateResponse.ok) {
                         const error = await updateResponse.json();
                         throw new Error(`上传到云端失败: ${error.message || '未知错误'}`);
@@ -971,6 +1440,12 @@
                     
                     showStatus(`同步完成，共 ${notes.filter(n => !n.isDeleted).length} 条有效笔记`);
                     
+                    // 隐藏进度条
+                    setTimeout(() => {
+                        uploadProgressContainer.classList.add('hidden');
+                        uploadProgressBar.style.width = '0%';
+                    }, 500);
+                    
                     // 更新最后同步时间
                     localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
                     logSync('同步完成');
@@ -980,6 +1455,11 @@
                     console.error('同步错误:', error);
                     showStatus(`同步失败: ${error.message}`, true);
                     logSync(`错误: ${error.message}`);
+                    
+                    // 重置进度条
+                    uploadProgressContainer.classList.add('hidden');
+                    uploadProgressBar.style.width = '0%';
+                    
                     reject(error);
                 } finally {
                     isSyncing = false;
@@ -1008,29 +1488,6 @@
                 );
                 saveNotesLocally();
             }
-        }
-        
-        // 辅助函数：比较两个笔记数组是否完全一致（包含删除标记）
-        function arraysEqual(arr1, arr2) {
-            if (arr1.length !== arr2.length) return false;
-            
-            // 确保两个数组都有isDeleted属性
-            const normalizedArr1 = arr1.map(n => ({...n, isDeleted: n.isDeleted || false}));
-            const normalizedArr2 = arr2.map(n => ({...n, isDeleted: n.isDeleted || false}));
-            
-            for (let i = 0; i < normalizedArr1.length; i++) {
-                const n1 = normalizedArr1[i];
-                const n2 = normalizedArr2.find(n => n.id === n1.id);
-                
-                if (!n2 || 
-                    n1.title !== n2.title || 
-                    n1.content !== n2.content || 
-                    n1.date !== n2.date ||
-                    n1.isDeleted !== n2.isDeleted) {
-                    return false;
-                }
-            }
-            return true;
         }
         
         // 手动设置Gist ID
@@ -1071,6 +1528,12 @@
         closeFullscreenBtn.addEventListener('click', closeFullscreenView);
         fullscreenEditBtn.addEventListener('click', switchToEditFromFullscreen);
         
+        // 图片查看器相关事件
+        closeImageViewerBtn.addEventListener('click', closeImageViewer);
+        imageViewerModal.addEventListener('click', (e) => {
+            if (e.target === imageViewerModal) closeImageViewer();
+        });
+        
         // 点击全屏模态框外部关闭
         fullscreenViewModal.addEventListener('click', (e) => {
             if (e.target === fullscreenViewModal) closeFullscreenView();
@@ -1101,6 +1564,7 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 closeFullscreenView();
+                closeImageViewer();
                 closeEditModal();
                 closeDeleteConfirmModal();
                 closeDeleteFailedModal();
